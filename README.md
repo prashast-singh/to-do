@@ -25,6 +25,18 @@ A production-grade microservices architecture with User Service and Todo Service
 - Node.js 18+ (for local development)
 - PostgreSQL (for local development)
 
+### Environment Configuration
+
+The project includes an `env.example` file that shows all required environment variables:
+
+```bash
+# Copy the example file
+cp env.example .env
+
+# Edit .env with your values (optional for Docker)
+# The Docker Compose setup works out-of-the-box
+```
+
 ### Option 1: Run with Docker Compose (Recommended)
 
 ```bash
@@ -41,6 +53,8 @@ docker-compose up --build
 # - Frontend: http://localhost:3000
 ```
 
+**Note**: The first build may take a few minutes as it needs to install dependencies and generate Prisma clients.
+
 ### Option 2: Local Development with Local PostgreSQL
 
 ```bash
@@ -48,8 +62,8 @@ docker-compose up --build
 # (Using Postgres.app or brew services start postgresql)
 
 # 2. Create databases
-/Applications/Postgres.app/Contents/Versions/17/bin/psql -U postgres -c "CREATE DATABASE users;"
-/Applications/Postgres.app/Contents/Versions/17/bin/psql -U postgres -c "CREATE DATABASE todos;"
+ -U postgres -c "CREATE DATABASE users;"
+ -U postgres -c "CREATE DATABASE todos;"
 
 # 3. Set up User Service
 cd user-service
@@ -83,6 +97,7 @@ The project includes a **working frontend** for testing the API:
 - **Features**: User registration, login, and full CRUD operations for todos
 - **Authentication**: JWT-based with automatic token management
 - **UI**: Clean, minimal interface with real-time feedback
+- **Proxy**: Nginx reverse proxy to backend services with CORS support
 
 ### Frontend Features
 
@@ -93,8 +108,22 @@ The project includes a **working frontend** for testing the API:
 - ✅ Delete todos
 - ✅ Real-time status updates
 - ✅ Responsive design
+- ✅ API proxy to backend services
+
+### Frontend API Proxy
+
+The frontend includes Nginx configuration that proxies API requests:
+
+- `/api/users/*` → User Service (port 3001)
+- `/api/todos/*` → Todo Service (port 3002)
+
+This allows frontend applications to make API calls to the same origin.
 
 ## 📋 API Endpoints
+
+### Health Checks
+
+- `GET /health` - Service health status (available on all services)
 
 ### User Service (Port 3001)
 
@@ -120,12 +149,21 @@ The project includes a **working frontend** for testing the API:
 
 ## 📝 Example Requests
 
+### Health Check
+
+```bash
+# Check service health
+curl http://localhost:3001/health
+curl http://localhost:3002/health
+curl http://localhost:3000/
+```
+
 ### Register User
 
 ```bash
 curl -X POST http://localhost:3001/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "password123"}'
+  -d '{"email": "user@example.com", "password": "password123", "name": "Test User"}'
 ```
 
 ### Login
@@ -152,6 +190,16 @@ curl -X PATCH http://localhost:3002/api/v1/todos/1 \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"content": "Buy organic groceries"}'
+```
+
+### Test Frontend Proxy
+
+```bash
+# Test proxy to user service
+curl http://localhost:3000/api/users/health
+
+# Test proxy to todo service
+curl http://localhost:3000/api/todos/health
 ```
 
 ## 🧪 Testing
@@ -249,6 +297,21 @@ LOG_LEVEL=info
 
 All services include health checks and wait for database availability before starting.
 
+### Docker Image Details
+
+- **Base Images**: Uses `node:18-slim` for better Prisma compatibility
+- **Multi-stage Builds**: Optimized for production with separate build and runtime stages
+- **Security**: Runs as non-root user
+- **Dependencies**: Includes OpenSSL for Prisma runtime requirements
+
+### Prisma Compatibility
+
+The Docker images are specifically configured for Prisma compatibility:
+
+- Uses Debian-based `node:18-slim` instead of Alpine Linux
+- Explicitly installs OpenSSL dependencies
+- Ensures all build dependencies are available during Prisma client generation
+
 ## 📚 API Documentation
 
 - **OpenAPI 3.0**: Available in `openapi/` directory
@@ -263,6 +326,27 @@ All services include health checks and wait for database availability before sta
 3. **JWT issues**: Verify JWT_SECRET is set in environment
 4. **Migration errors**: Check database logs for connection issues
 5. **Frontend not loading**: Ensure you're serving from the `frontend/` directory
+
+### Docker-Specific Issues
+
+#### Prisma OpenSSL Errors
+
+**Symptoms**: `Prisma failed to detect the libssl/openssl version` or `Could not parse schema engine response`
+**Solution**: The Dockerfiles have been updated to use `node:18-slim` and install OpenSSL dependencies. If you encounter this, ensure you're using the latest Dockerfile versions.
+
+#### Nginx Configuration Errors
+
+**Symptoms**: `nginx: [emerg] "if" directive is not allowed here` or `"add_header" directive is not allowed here`
+**Solution**: The Nginx configuration has been fixed to properly place directives within valid contexts. Ensure you're using the latest `nginx.conf`.
+
+#### Container Startup Failures
+
+**Symptoms**: Services exit immediately after starting
+**Solution**: Check logs with `docker-compose logs <service-name>`. Common causes:
+
+- Database not ready (check health checks)
+- Environment variables missing
+- Port conflicts
 
 ### Local Development Issues
 
@@ -281,9 +365,23 @@ docker-compose logs todo-service
 docker-compose logs user-db
 docker-compose logs todo-db
 
+# View frontend logs
+docker-compose logs frontend
+
+# Follow logs in real-time
+docker-compose logs -f <service-name>
+
 # Local development logs
 # Check terminal output for each service
 ```
+
+### Debugging Steps
+
+1. **Check container status**: `docker-compose ps`
+2. **View logs**: `docker-compose logs <service-name>`
+3. **Test health endpoints**: `curl http://localhost:<port>/health`
+4. **Check database connectivity**: `docker exec <db-container> pg_isready`
+5. **Rebuild if needed**: `docker-compose down && docker-compose up --build`
 
 ## 📈 Performance & Monitoring
 

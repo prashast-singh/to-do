@@ -1,5 +1,4 @@
 import TodoRepository from './todo.repository';
-import { CreateTodoInput, UpdateTodoInput } from './todo.validators';
 
 export class TodoService {
   private todoRepository: TodoRepository;

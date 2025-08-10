@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject } from 'zod';
 
 export const validateRequest = (schema: AnyZodObject) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       await schema.parseAsync({
         body: req.body,
@@ -12,7 +12,7 @@ export const validateRequest = (schema: AnyZodObject) => {
       next();
     } catch (error) {
       if (error instanceof Error) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: {
             message: 'Validation failed',
@@ -20,6 +20,7 @@ export const validateRequest = (schema: AnyZodObject) => {
             details: error.message,
           },
         });
+        return;
       }
       next(error);
     }

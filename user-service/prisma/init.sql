@@ -1,6 +1,6 @@
 -- Initialize users database
-CREATE DATABASE IF NOT EXISTS users;
-\c users;
+-- The database is already created by POSTGRES_DB environment variable
+-- \c users; -- This line is not needed as we're already in the users database
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (

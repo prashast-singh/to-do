@@ -1,6 +1,6 @@
 -- Initialize todos database
-CREATE DATABASE IF NOT EXISTS todos;
-\c todos;
+-- The database is already created by POSTGRES_DB environment variable
+-- \c todos; -- This line is not needed as we're already in the todos database
 
 -- Create todos table
 CREATE TABLE IF NOT EXISTS todos (
