@@ -1,0 +1,607 @@
+openapi: 3.0.3
+info:
+  title: AICI SDE Challenge API
+  description: |
+    A production-grade microservices architecture with User Service and Todo Service.
+
+    ## Authentication
+    This API uses JWT (JSON Web Token) for authentication. To access protected endpoints:
+
+    1. Register a user account using `POST /api/v1/auth/register`
+    2. Login to get a JWT token using `POST /api/v1/auth/login`
+    3. Include the token in the Authorization header: `Authorization: Bearer <JWT_TOKEN>`
+
+    ## Services
+    - **User Service** (Port 3001): User authentication and management
+    - **Todo Service** (Port 3002): Todo CRUD operations (requires authentication)
+
+    ## Rate Limiting
+    Authentication endpoints are rate-limited to prevent brute force attacks.
+
+  version: 1.0.0
+  contact:
+    name: AICI SDE Challenge
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001
+    description: User Service (Local Development)
+  - url: http://localhost:3002
+    description: Todo Service (Local Development)
+  - url: http://user-service:3001
+    description: User Service (Docker)
+  - url: http://todo-service:3002
+    description: Todo Service (Docker)
+
+tags:
+  - name: Authentication
+    description: User registration and login endpoints
+  - name: Todos
+    description: Todo CRUD operations (requires authentication)
+
+paths:
+  # ========================================
+  # USER SERVICE ENDPOINTS
+  # ========================================
+
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email and password
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              valid:
+                summary: Valid registration
+                value:
+                  email: "user@example.com"
+                  password: "password123"
+              invalid_email:
+                summary: Invalid email format
+                value:
+                  email: "invalid-email"
+                  password: "password123"
+              short_password:
+                summary: Password too short
+                value:
+                  email: "user@example.com"
+                  password: "123"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+              example:
+                success: true
+                data:
+                  user:
+                    uuid: "550e8400-e29b-41d4-a716-446655440000"
+                    user_email: "user@example.com"
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                validation_error:
+                  summary: Validation error
+                  value:
+                    success: false
+                    error:
+                      message: "Validation failed"
+                      code: "VALIDATION_ERROR"
+                      details: "Password must be at least 6 characters"
+                missing_fields:
+                  summary: Missing required fields
+                  value:
+                    success: false
+                    error:
+                      message: "Validation failed"
+                      code: "VALIDATION_ERROR"
+                      details: "email is required"
+        "409":
+          description: Conflict - email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  message: "User with this email already exists"
+                  code: "USER_EXISTS"
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticate user with email and password to get JWT token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              valid:
+                summary: Valid login
+                value:
+                  email: "user@example.com"
+                  password: "password123"
+              invalid_credentials:
+                summary: Invalid credentials
+                value:
+                  email: "user@example.com"
+                  password: "wrongpassword"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                success: true
+                data:
+                  user:
+                    uuid: "550e8400-e29b-41d4-a716-446655440000"
+                    user_email: "user@example.com"
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  message: "Invalid credentials"
+                  code: "INVALID_CREDENTIALS"
+
+  # ========================================
+  # TODO SERVICE ENDPOINTS
+  # ========================================
+
+  /api/v1/todos:
+    get:
+      tags:
+        - Todos
+      summary: Get user's todos
+      description: Retrieve all todos belonging to the authenticated user
+      operationId: getUserTodos
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Todos retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodosResponse"
+              examples:
+                with_todos:
+                  summary: User has todos
+                  value:
+                    success: true
+                    data:
+                      [
+                        {
+                          id: 1,
+                          uuid: "550e8400-e29b-41d4-a716-446655440001",
+                          content: "Buy groceries",
+                          user_uuid: "550e8400-e29b-41d4-a716-446655440000",
+                          createdAt: "2024-01-15T10:30:00Z",
+                          updatedAt: "2024-01-15T10:30:00Z",
+                        },
+                        {
+                          id: 2,
+                          uuid: "550e8400-e29b-41d4-a716-446655440002",
+                          content: "Complete project",
+                          user_uuid: "550e8400-e29b-41d4-a716-446655440000",
+                          createdAt: "2024-01-14T15:45:00Z",
+                          updatedAt: "2024-01-14T15:45:00Z",
+                        },
+                      ]
+                empty_list:
+                  summary: User has no todos
+                  value:
+                    success: true
+                    data: []
+        "401":
+          description: Unauthorized - missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  message: "Authorization header missing or invalid"
+                  code: "MISSING_AUTH_HEADER"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - Todos
+      summary: Create a new todo
+      description: Create a new todo item for the authenticated user
+      operationId: createTodo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTodoRequest"
+            examples:
+              valid:
+                summary: Valid todo creation
+                value:
+                  content: "Buy groceries"
+              empty_content:
+                summary: Empty content
+                value:
+                  content: ""
+              long_content:
+                summary: Content too long
+                value:
+                  content: "This is a very long todo content that exceeds the maximum allowed length of 500 characters. This would be rejected by the validation system because it's too long and would not fit properly in the UI and might cause issues with the database storage and retrieval systems."
+      responses:
+        "201":
+          description: Todo created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTodoResponse"
+              example:
+                success: true
+                data:
+                  id: 1
+                  uuid: "550e8400-e29b-41d4-a716-446655440001"
+                  content: "Buy groceries"
+                  user_uuid: "550e8400-e29b-41d4-a716-446655440000"
+                  createdAt: "2024-01-15T10:30:00Z"
+                  updatedAt: "2024-01-15T10:30:00Z"
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/todos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Todo ID
+        schema:
+          type: integer
+          minimum: 1
+        example: 1
+
+    patch:
+      tags:
+        - Todos
+      summary: Update a todo
+      description: Update an existing todo item (only if owned by authenticated user)
+      operationId: updateTodo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTodoRequest"
+            examples:
+              valid:
+                summary: Valid update
+                value:
+                  content: "Buy organic groceries"
+              empty_content:
+                summary: Empty content
+                value:
+                  content: ""
+      responses:
+        "200":
+          description: Todo updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateTodoResponse"
+              example:
+                success: true
+                data:
+                  id: 1
+                  uuid: "550e8400-e29b-41d4-a716-446655440001"
+                  content: "Buy organic groceries"
+                  user_uuid: "550e8400-e29b-41d4-a716-446655440000"
+                  createdAt: "2024-01-15T10:30:00Z"
+                  updatedAt: "2024-01-15T11:15:00Z"
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized - missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Todo not found or access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error:
+                  message: "Todo not found or access denied"
+                  code: "TODO_NOT_FOUND"
+
+    delete:
+      tags:
+        - Todos
+      summary: Delete a todo
+      description: Delete an existing todo item (only if owned by authenticated user)
+      operationId: deleteTodo
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Todo deleted successfully
+        "401":
+          description: Unauthorized - missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Todo not found or access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from login endpoint.
+        Include in Authorization header: `Authorization: Bearer <token>`
+
+  schemas:
+    # Request Schemas
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 6
+          description: User's password (minimum 6 characters)
+          example: "password123"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 1
+          description: User's password
+          example: "password123"
+
+    CreateTodoRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Todo content (1-500 characters)
+          example: "Buy groceries"
+
+    UpdateTodoRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Updated todo content (1-500 characters)
+          example: "Buy organic groceries"
+
+    # Response Schemas
+    RegisterResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: "#/components/schemas/User"
+            token:
+              type: string
+              description: JWT token for authentication
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: "#/components/schemas/User"
+            token:
+              type: string
+              description: JWT token for authentication
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    CreateTodoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/Todo"
+
+    UpdateTodoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/Todo"
+
+    TodosResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Todo"
+
+    # Data Models
+    User:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+
+    Todo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Auto-incrementing primary key
+          example: 1
+        uuid:
+          type: string
+          format: uuid
+          description: Unique todo identifier
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        content:
+          type: string
+          description: Todo content
+          example: "Buy groceries"
+        user_uuid:
+          type: string
+          format: uuid
+          description: Foreign key to user
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    # Error Response Schema
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Validation failed"
+            code:
+              type: string
+              description: Error code for programmatic handling
+              example: "VALIDATION_ERROR"
+            details:
+              type: string
+              description: Additional error details (optional)
+              example: "Password must be at least 6 characters"
+
+# Security
+security:
+  - BearerAuth: []
