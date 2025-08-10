@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # User Database
   user-db:
@@ -11,7 +9,6 @@ services:
       POSTGRES_DB: users
     volumes:
       - user-db-data:/var/lib/postgresql/data
-      - ./user-service/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5433:5432"
     healthcheck:
@@ -32,7 +29,6 @@ services:
       POSTGRES_DB: todos
     volumes:
       - todo-db-data:/var/lib/postgresql/data
-      - ./todo-service/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5434:5432"
     healthcheck:
