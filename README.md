@@ -42,7 +42,7 @@ cp env.example .env
 ```bash
 # Clone and setup
 git clone <repository-url>
-cd aici
+cd to-do
 
 # Start all services
 docker-compose up --build
